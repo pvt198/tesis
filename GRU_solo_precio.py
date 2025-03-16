@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import SimpleRNN, Dense
+from tensorflow.keras.layers import GRU, Dense  # Import GRU layer instead of LSTM
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 file_path = "./prices/datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
-#Nome file donde salver las predicciones
-out_pred_name = "RNN_solo_Precio"
+# Nome file donde salver las predicciones
+out_pred_name = "GRU_solo_Precio"  # Updated output file name
 
 # Convertir los valores numéricos correctamente
 for col in ["Open", "High", "Low", "Close"]:
     df[col] = df[col].str.replace(",", "").astype(float)
 
-# Crear secuencias para la RNN
+# Crear secuencias para la GRU
 def create_sequences(data, input_steps=30, output_steps=7):
     X, Y, means, stds = [], [], [], []
     for i in range(len(data) - input_steps - output_steps):
@@ -63,10 +63,10 @@ batch_size = 32
 epochs = 100
 dense_layers = 1
 
-# Crear el modelo con los hiperparámetros fijos
+# Crear el modelo con los hiperparámetros fijos utilizando GRU
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        SimpleRNN(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),
+        GRU(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),  # Replace LSTM with GRU
     ])
 
     # Agregar capas densas según el número de capas especificado

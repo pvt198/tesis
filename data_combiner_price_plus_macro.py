@@ -112,7 +112,7 @@ for col in ['GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inf
     previous_value = df_macro[col].shift(-1).fillna(1)  # Fill NaN with 1 to avoid division by zero
     df_gradients[col] = df_gradients[col] / previous_value  # Normalization
 
-df_gradients.to_csv('NASDAQ_price_plus_macro.csv', index=False)
+df_gradients.to_csv('./results/NASDAQ_price_plus_macro.csv', index=False)
 
 ### PLOTTING ###
 

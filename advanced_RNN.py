@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # Load data from CSV
-file_path = "NASDAQ_price_plus_macro.csv"  # Adjust the path to your CSV file
+file_path = "results/NASDAQ_price_plus_macro.csv"  # Adjust the path to your CSV file
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Create sequences for RNN

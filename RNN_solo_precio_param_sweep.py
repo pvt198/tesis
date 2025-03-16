@@ -79,7 +79,7 @@ param_grid = {
     "neurons": [10, 20, 30],
     "learning_rate": [0.0001, 0.001],
     "batch_size": [8, 32, 64],
-    "epochs": [50],
+    "epochs": [100],
     "dense_layers": [1, 2, 3]
 }
 
@@ -139,11 +139,3 @@ best_model = create_model(
     best_params["learning_rate"],
     best_params["dense_layers"]
 )
-
-# Entrenar el modelo con los mejores parámetros
-history = best_model.fit(X_train, Y_train, epochs=best_params["epochs"], batch_size=best_params["batch_size"],
-                         verbose=1, validation_data=(X_val, Y_val))
-
-# Evaluar el modelo en el conjunto de prueba
-test_loss = best_model.evaluate(X_test, Y_test, verbose=0)
-print(f"Pérdida en prueba (MSE): {test_loss:.4f}")

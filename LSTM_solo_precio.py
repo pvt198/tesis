@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import LSTM, Dense  # Import LSTM layer instead of SimpleRNN
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
 
 # Cargar datos desde CSV
@@ -11,7 +12,7 @@ file_path = "./prices/datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Nome file donde salver las predicciones
-out_pred_name = "LSTM_solo_Precio"
+out_pred_name = "LSTM_solo_Precio"  # Updated output file name
 
 # Convertir los valores numéricos correctamente
 for col in ["Open", "High", "Low", "Close"]:
@@ -49,23 +50,23 @@ stds_test = stds[split:]
 
 split2 = int(len(X_trainF) * 0.8)
 X_train, Y_train = X_trainF[:split2], Y_trainF[:split2]
-X_val, Y_val =  X_trainF[split2:], Y_trainF[split2:]
+X_val, Y_val = X_trainF[split2:], Y_trainF[split2:]
 
 X_train = X_train.reshape(-1, input_steps, 1)
 X_val = X_val.reshape(-1, input_steps, 1)
 X_test = X_test.reshape(-1, input_steps, 1)
 
 # Definir los hiperparámetros
-neurons = 20
-learning_rate = 0.001
-batch_size = 8
-epochs = 60
-dense_layers = 2
+neurons = 10
+learning_rate = 0.0001
+batch_size = 32
+epochs = 100
+dense_layers = 1
 
-# Crear el modelo con LSTM
+# Crear el modelo con los hiperparámetros fijos utilizando LSTM
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        LSTM(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),
+        LSTM(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),  # Replace SimpleRNN with LSTM
     ])
 
     # Agregar capas densas según el número de capas especificado
@@ -78,6 +79,17 @@ def create_model(neurons, learning_rate, dense_layers):
 
 # Crear el modelo y entrenarlo
 model = create_model(neurons, learning_rate, dense_layers)
+
+# Plot the model architecture (optional step)
+plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
+
+# You can display the plot inline (in a Jupyter Notebook for example)
+img = plt.imread('./model_plot.png')
+plt.figure(figsize=(12, 12))
+plt.imshow(img)
+plt.axis('off')  # Hide axes
+plt.show()
+
 history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
 
 # Evaluar el modelo
@@ -91,8 +103,8 @@ real_original = (Y_test * stds_test[:, None]) + means_test[:, None]
 
 # Crear las fechas para las predicciones hasta el 15 de marzo de 2025
 num_predictions = len(real_original)
-start_date = pd.Timestamp('2022-03-01')
-end_date = pd.Timestamp('2025-01-28')
+start_date = pd.Timestamp('2022-01-01')
+end_date = pd.Timestamp('2025-03-14')
 
 # Calcular la frecuencia necesaria para dividir el rango de fechas
 pred_dates = pd.date_range(start=start_date, end=end_date, periods=num_predictions)
@@ -112,12 +124,12 @@ plt.show()
 
 df_results = pd.DataFrame({
     "Date": pred_dates.strftime('%Y-%m-%d'),  # Fechas de predicción
-    "Actual_Close": real_original[:, 0],  # Valores reales
+    "Actual_Close":  real_original[:, 0],  # Valores reales
     "Predicted_Close": pred_original[:, 0]  # Valores predichos
 })
 
 # Guardar el DataFrame en un archivo CSV
-df_results.to_csv("./results/"+out_pred_name+"_predictions_LSTM_price_plus_macro.csv", index=False)
+df_results.to_csv("./results/"+out_pred_name+"_predictions.csv", index=False)
 
 # Graficar la pérdida de entrenamiento y validación
 print(history.history.keys())
