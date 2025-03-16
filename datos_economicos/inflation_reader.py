@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Paso 1: Cargar los datos desde el archivo CSV
-data = pd.read_csv("inflation.csv", parse_dates=["observation_date"])
+data = pd.read_csv("Inflation.csv", parse_dates=["observation_date"])
 
 # Renombrar la columna de inflación para mayor claridad
 data.rename(columns={"CORESTICKM159SFRBATL": "Inflation"}, inplace=True)
