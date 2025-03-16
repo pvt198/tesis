@@ -6,6 +6,13 @@ from tensorflow.keras.layers import GRU, Dense  # Import GRU layer instead of LS
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
+from tensorflow.keras.initializers import GlorotUniform, HeUniform
+
+# Función para fijar la semilla en todos los lugares necesarios
+def set_seed(seed=42):
+    np.random.seed(seed)  # Fija la semilla para NumPy
+    tf.random.set_seed(seed)  # Fija la semilla para TensorFlow
+set_seed(42)
 
 # Cargar datos desde CSV
 file_path = "./prices/datos_unidos.csv"
@@ -66,14 +73,16 @@ dense_layers = 1
 # Crear el modelo con los hiperparámetros fijos utilizando GRU
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        GRU(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),  # Replace LSTM with GRU
+        GRU(30, activation="tanh", return_sequences=False,
+            kernel_initializer=HeUniform(seed=42), input_shape=(input_steps, 1)),  # Replace LSTM with GRU
     ])
 
     # Agregar capas densas según el número de capas especificado
     for i in range(dense_layers):
-        model.add(Dense(neurons / (i + 1), activation="relu"))  # "neurons/(i+1)" neuronas en cada capa densa
+        model.add(Dense(neurons / (i + 1), activation="relu",
+                  kernel_initializer=HeUniform(seed=42)))  # "neurons/(i+1)" neuronas en cada capa densa
 
-    model.add(Dense(output_steps, activation='linear'))  # Capa de salida
+    model.add(Dense(output_steps, activation='linear', kernel_initializer=HeUniform(seed=42)))  # Capa de salida
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
     return model
 
@@ -91,6 +100,23 @@ plt.axis('off')  # Hide axes
 plt.show()
 
 history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
+
+# Función para encontrar la mínima pérdida de validación
+def find_min_val_loss(history):
+    min_val_loss = min(history.history['val_loss'])
+    min_epoch = history.history['val_loss'].index(min_val_loss) + 1  # +1 porque los índices comienzan en 0
+    print(f"Mínima pérdida de validación (MSE): {min_val_loss:.4f} en la época {min_epoch}")
+    return min_val_loss, min_epoch
+min_val_loss, min_epoch = find_min_val_loss(history)
+
+# Guardar historial de pérdidas en un CSV
+loss_df = pd.DataFrame({
+    "Epoch": np.arange(1, epochs + 1),
+    "Loss": history.history['loss'],
+    "Val_Loss": history.history['val_loss']
+})
+loss_file_path = "./results/"+out_pred_name+"_val_loss_history.csv"
+loss_df.to_csv(loss_file_path, index=False)
 
 # Evaluar el modelo
 loss = model.evaluate(X_test, Y_test, verbose=0)
