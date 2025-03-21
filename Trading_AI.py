@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Cargar el archivo CSV con las predicciones
-df = pd.read_csv("./results/RNN_solo_Precio_predictions.csv")
+df = pd.read_csv("./results/RNN_Precio_y_macro_predictions.csv")
 
 # Asegurar que la columna "Date" sea de tipo datetime y ordenar por fecha
 df["Date"] = pd.to_datetime(df["Date"])

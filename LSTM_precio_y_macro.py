@@ -15,15 +15,6 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
-# Hiperparametros
-input_steps = 30*6
-output_steps = 7
-neurons = 10*6
-learning_rate = 0.0001
-batch_size = 32
-epochs = 30
-dense_layers = 1*3
-RRN_cell = 30*6
 
 # Función para fijar la semilla en todos los lugares necesarios
 def set_seed(seed=42):
@@ -32,7 +23,7 @@ def set_seed(seed=42):
 set_seed(42)
 
 #Nome file donde salver las predicciones
-out_pred_name = "RNN_Precio_y_macro"
+out_pred_name = "LSTM_Precio_y_macro"
 
 #  Cargar datos desde CSV
 file_path = "results/NASDAQ_price_plus_macro.csv"  # Adjust the path to your CSV file
@@ -66,8 +57,9 @@ def create_sequences(data, input_steps=30, output_steps=7):
 
 
 # Prepare data
-
-data_columns = ['Close', 'Inflation',]# 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
+input_steps = 30*6
+output_steps = 7
+data_columns = ['Close', 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
 data_values = df[data_columns].values  # Extract relevant columns
 
 # Create sequences
@@ -79,39 +71,23 @@ X_trainF, Y_trainF = X[:split], Y[:split]
 X_test, Y_test = X[split:], Y[split:]
 means_test = means[split:]
 stds_test = stds[split:]
-
-#debug plot
-print(np.shape(X_trainF))
-X_trainF = np.clip(X_trainF, -4, 4)
-min_vals = np.min(X_trainF, axis=(0, 1))
-max_vals = np.max(X_trainF, axis=(0, 1))
-mean_vals = np.mean(X_trainF, axis=(0, 1))
-std_vals = np.std(X_trainF, axis=(0, 1))
-#print("Min:", min_vals)
-#print("Max:", max_vals)
-#print("Mean:", mean_vals)
-#print("Std:", std_vals)
-flattened_data = X_trainF.reshape(-1, X_trainF.shape[-1])  # Shape (7875*180, 6)
-print(np.shape(flattened_data))
-
-fig, axes = plt.subplots(2, 1, figsize=(15, 8))
-for i, ax in enumerate(axes.flat):
-    ax.hist(flattened_data[:, i], bins=50, alpha=0.7, color='b', edgecolor='black')
-    ax.set_title(data_columns[i])
-    ax.set_xlabel('Valor')
-    ax.set_ylabel('Frecuencia')
-plt.legend()
-plt.tight_layout()
-plt.show()
-
+print(X_trainF)
 split2 = int(len(X_trainF) * 0.8)
 X_train, Y_train = X_trainF[:split2], Y_trainF[:split2]
+
 X_val, Y_val = X_trainF[split2:], Y_trainF[split2:]
 
 X_train = X_train.reshape(-1, input_steps, len(data_columns))
 X_val = X_val.reshape(-1, input_steps, len(data_columns))
 X_test = X_test.reshape(-1, input_steps, len(data_columns))
 
+# Definir los hiperparámetros
+neurons = 10*6
+learning_rate = 0.0001
+batch_size = 32
+epochs = 20
+dense_layers = 3
+RRN_cell = 30*6
 
 # Create model
 def create_model(neurons, learning_rate, dense_layers):
@@ -146,6 +122,7 @@ history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verb
 loss = model.evaluate(X_test, Y_test, verbose=1)
 print(f"Test Loss (MSE): {loss:.4f}")
 
+
 # Función para encontrar la mínima pérdida de validación
 def find_min_val_loss(history):
     min_val_loss = min(history.history['val_loss'])
@@ -164,20 +141,15 @@ loss_file_path = "./results/"+out_pred_name+"_val_loss_history.csv"
 loss_df.to_csv(loss_file_path, index=False)
 
 
+
 # Prediciones
 pred_scaled = model.predict(X_test)
 pred_original = (pred_scaled * stds_test[:, None]) + means_test[:, None]
 
-# Grafico Predicciones
-#pred_dates = df["Date"].values[split + input_steps:split + input_steps + len(pred_original)]
-#pred_dates = pd.to_datetime(pred_dates)
-# Crear las fechas para las predicciones hasta el 15 de marzo de 2025
-num_predictions = len(pred_original)
-start_date = pd.Timestamp('2022-01-01')
-end_date = pd.Timestamp('2025-03-14')
-# Calcular la frecuencia necesaria para dividir el rango de fechas
-pred_dates = pd.date_range(start=start_date, end=end_date, periods=num_predictions)
 
+# Grafico Predicciones
+pred_dates = df["Date"].values[split + input_steps:split + input_steps + len(pred_original)]
+pred_dates = pd.to_datetime(pred_dates)
 plt.figure(figsize=(12, 6))
 plt.plot(pred_dates, pred_original[:,0], label="Predicted Close Price", color="red", linestyle="dashed")
 plt.plot(pred_dates, df["Close"].values[split + input_steps:split + input_steps + len(pred_original)], label="Actual Close Price", color="blue")  # Actual Close Price

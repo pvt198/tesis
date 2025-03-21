@@ -3,13 +3,13 @@ import os
 import matplotlib.pyplot as plt
 
 # Directorio donde se almacenan los archivos CSV
-directorio = 'prices'
+directorio = './'
 
 # Lista para almacenar los DataFrames
 dfs = []
 
 # Iterar sobre los años del 2020 al 2026
-for año in range(2010, 2026):
+for año in range(1990, 2026):
     # Crear el nombre del archivo CSV
     nombre_archivo = f"{año}.csv"
     ruta_archivo = os.path.join(directorio, nombre_archivo)

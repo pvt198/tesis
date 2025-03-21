@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import itertools
 
 # Cargar datos desde CSV
-file_path = "./prices/datos_unidos.csv"
+file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Nome file donde salvar las predicciones

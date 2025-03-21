@@ -2,11 +2,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 files = ["./results/RNN_solo_Precio_val_loss_history.csv",
-         "./results/LSTM_solo_Precio_val_loss_history.csv",
-         "./results/GRU_solo_Precio_val_loss_history.csv"]
-labels = ["RNN",
-         "LSTM",
-         "GRU"]
+         "./results/RNN_Precio_y_macro_val_loss_history.csv",]
+labels = ["RNN Solo Precio",
+         "RNN Precio y Macro",
+         ]
 
 
 plt.figure(figsize=(10, 5))

@@ -15,7 +15,7 @@ def set_seed(seed=42):
 set_seed(42)
 
 # Cargar datos desde CSV
-file_path = "./prices/datos_unidos.csv"
+file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Nome file donde salver las predicciones
@@ -89,10 +89,8 @@ def create_model(neurons, learning_rate, dense_layers):
 # Crear el modelo y entrenarlo
 model = create_model(neurons, learning_rate, dense_layers)
 
-# Plot the model architecture (optional step)
+# Grafica el Modelo
 plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
-
-# You can display the plot inline (in a Jupyter Notebook for example)
 img = plt.imread('./model_plot.png')
 plt.figure(figsize=(12, 12))
 plt.imshow(img)

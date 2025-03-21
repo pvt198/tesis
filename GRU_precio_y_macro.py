@@ -2,11 +2,19 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense  # Import LSTM layer instead of SimpleRNN
+from tensorflow.keras.layers import SimpleRNN, GRU, LSTM, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from tensorflow.keras.initializers import GlorotUniform, HeUniform
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras.layers import LayerNormalization
+
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', None)
+pd.set_option('display.max_colwidth', None)
+
 
 # Función para fijar la semilla en todos los lugares necesarios
 def set_seed(seed=42):
@@ -14,78 +22,90 @@ def set_seed(seed=42):
     tf.random.set_seed(seed)  # Fija la semilla para TensorFlow
 set_seed(42)
 
-# Cargar datos desde CSV
-file_path = "datos_unidos.csv"
+#Nome file donde salver las predicciones
+out_pred_name = "GRU_Precio_y_macro"
+
+#  Cargar datos desde CSV
+file_path = "results/NASDAQ_price_plus_macro.csv"  # Adjust the path to your CSV file
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
-# Nome file donde salver las predicciones
-out_pred_name = "LSTM_solo_Precio"  # Updated output file name
 
-# Convertir los valores numéricos correctamente
-for col in ["Open", "High", "Low", "Close"]:
-    df[col] = df[col].str.replace(",", "").astype(float)
-
-# Crear secuencias para la LSTM
 def create_sequences(data, input_steps=30, output_steps=7):
     X, Y, means, stds = [], [], [], []
+
     for i in range(len(data) - input_steps - output_steps):
         seq = data[i:i + input_steps]
-        mean = np.mean(seq)
-        std = np.std(seq)
+        future_seq = data[i + input_steps:i + input_steps + output_steps]
 
+        # Compute mean and std for each column separately
+        mean = np.mean(seq, axis=0)  # Mean for each column
+        std = np.std(seq, axis=0)  # Std for each column
+
+        # Avoid division by zero
+        std[std == 0] = 1
+
+        # Normalize all columns
         normalized_seq = (seq - mean) / std
+        normalized_future_seq = (future_seq - mean) / std
 
         X.append(normalized_seq)
-        Y.append((data[i + input_steps:i + input_steps + output_steps] - mean) / std)
-
-        means.append(mean)
-        stds.append(std)
+        Y.append(normalized_future_seq[:, 0])  # Predict only the first column (e.g., Close price)
+        means.append(mean[0])
+        stds.append(std[0])
 
     return np.array(X), np.array(Y), np.array(means), np.array(stds)
 
-# Preparar datos
-input_steps = 30
+
+# Prepare data
+input_steps = 30*6
 output_steps = 7
-X, Y, means, stds = create_sequences(df["Close"].values, input_steps, output_steps)
+data_columns = ['Close', 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
+data_values = df[data_columns].values  # Extract relevant columns
+
+# Create sequences
+X, Y, means, stds = create_sequences(data_values, input_steps, output_steps)
 
 # Dividir en entrenamiento y prueba
-split = int(len(X) * 0.8)
+split = int(len(X) * 0.9105)
 X_trainF, Y_trainF = X[:split], Y[:split]
 X_test, Y_test = X[split:], Y[split:]
 means_test = means[split:]
 stds_test = stds[split:]
-
+print(X_trainF)
 split2 = int(len(X_trainF) * 0.8)
 X_train, Y_train = X_trainF[:split2], Y_trainF[:split2]
+
 X_val, Y_val = X_trainF[split2:], Y_trainF[split2:]
 
-X_train = X_train.reshape(-1, input_steps, 1)
-X_val = X_val.reshape(-1, input_steps, 1)
-X_test = X_test.reshape(-1, input_steps, 1)
+X_train = X_train.reshape(-1, input_steps, len(data_columns))
+X_val = X_val.reshape(-1, input_steps, len(data_columns))
+X_test = X_test.reshape(-1, input_steps, len(data_columns))
 
 # Definir los hiperparámetros
-neurons = 10
+neurons = 10*6
 learning_rate = 0.0001
 batch_size = 32
-epochs = 100
-dense_layers = 1
+epochs = 20
+dense_layers = 3
+RRN_cell = 30*6
 
-# Crear el modelo con los hiperparámetros fijos utilizando LSTM
+# Create model
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        LSTM(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1),
-        kernel_initializer = HeUniform(seed=42))
+        GRU(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, len(data_columns)),
+        kernel_initializer = HeUniform(seed=42)),
     ])
 
-    # Agregar capas densas según el número de capas especificado
     for i in range(dense_layers):
-        model.add(Dense(neurons / (i + 1), activation="relu", kernel_initializer = HeUniform(seed=42)))  # "neurons/(i+1)" neuronas en cada capa densa
+        model.add(Dense(neurons / (i + 1), activation="relu", kernel_initializer = HeUniform(seed=42)))  # Add dense layers
 
-    model.add(Dense(output_steps, activation='linear', kernel_initializer = HeUniform(seed=42)))  # Capa de salida
+
+    model.add(Dense(output_steps, activation='linear', kernel_initializer = HeUniform(seed=42)))  # Output layer for predicting only the Close price
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
     return model
 
-# Crear el modelo y entrenarlo
+
+# Create model
 model = create_model(neurons, learning_rate, dense_layers)
 
 # Grafica el Modelo
@@ -93,10 +113,15 @@ plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names
 img = plt.imread('./model_plot.png')
 plt.figure(figsize=(12, 12))
 plt.imshow(img)
-plt.axis('off')  # Hide axes
+plt.axis('off')
 plt.show()
+model.summary()
 
+# Evaluate the model
 history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
+loss = model.evaluate(X_test, Y_test, verbose=1)
+print(f"Test Loss (MSE): {loss:.4f}")
+
 
 # Función para encontrar la mínima pérdida de validación
 def find_min_val_loss(history):
@@ -115,43 +140,35 @@ loss_df = pd.DataFrame({
 loss_file_path = "./results/"+out_pred_name+"_val_loss_history.csv"
 loss_df.to_csv(loss_file_path, index=False)
 
-# Evaluar el modelo
-loss = model.evaluate(X_test, Y_test, verbose=0)
-print(f"Pérdida en prueba (MSE): {loss:.4f}")
 
-# Predicción y conversión a escala original
+
+# Prediciones
 pred_scaled = model.predict(X_test)
 pred_original = (pred_scaled * stds_test[:, None]) + means_test[:, None]
-real_original = (Y_test * stds_test[:, None]) + means_test[:, None]
 
-# Crear las fechas para las predicciones hasta el 15 de marzo de 2025
-num_predictions = len(real_original)
-start_date = pd.Timestamp('2022-01-01')
-end_date = pd.Timestamp('2025-03-14')
 
-# Calcular la frecuencia necesaria para dividir el rango de fechas
-pred_dates = pd.date_range(start=start_date, end=end_date, periods=num_predictions)
-
-# Graficar predicciones vs. valores reales
+# Grafico Predicciones
+pred_dates = df["Date"].values[split + input_steps:split + input_steps + len(pred_original)]
+pred_dates = pd.to_datetime(pred_dates)
 plt.figure(figsize=(12, 6))
-plt.plot(pred_dates, real_original[:, 0], label="Real", color="blue")  # Valores reales
-plt.plot(pred_dates, pred_original[:, 0], label="Predicción", color="red", linestyle="dashed")  # Predicciones
-plt.title("Predicción del Precio de Cierre de Nasdaq")
-plt.xlabel("Año")
-plt.ylabel("Precio")
+plt.plot(pred_dates, pred_original[:,0], label="Predicted Close Price", color="red", linestyle="dashed")
+plt.plot(pred_dates, df["Close"].values[split + input_steps:split + input_steps + len(pred_original)], label="Actual Close Price", color="blue")  # Actual Close Price
+plt.title("Predicted vs Actual Close Price")
+plt.xlabel("Date")
+plt.ylabel("Close Price")
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 plt.xticks(rotation=90)
-plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m'))
 plt.legend()
 plt.tight_layout()
 plt.show()
 
+#Guardar los Resultados
 df_results = pd.DataFrame({
-    "Date": pred_dates.strftime('%Y-%m-%d'),  # Fechas de predicción
-    "Actual_Close":  real_original[:, 0],  # Valores reales
+    "Date": pred_dates,  # Fechas de predicción
+    "Actual_Close": df["Close"].values[split + input_steps:split + input_steps + len(pred_original)],  # Valores reales
     "Predicted_Close": pred_original[:, 0]  # Valores predichos
 })
-
-# Guardar el DataFrame en un archivo CSV
 df_results.to_csv("./results/"+out_pred_name+"_predictions.csv", index=False)
 
 # Graficar la pérdida de entrenamiento y validación

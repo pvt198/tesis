@@ -8,6 +8,17 @@ from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
 from tensorflow.keras.initializers import GlorotUniform, HeUniform
 
+# Hiperparametros
+input_steps = 30*6
+output_steps = 7
+neurons = 10*6
+learning_rate = 0.0001
+batch_size = 32
+epochs = 30
+dense_layers = 1*3
+RRN_cell = 30*6
+
+
 # Función para fijar la semilla en todos los lugares necesarios
 def set_seed(seed=42):
     np.random.seed(seed)  # Fija la semilla para NumPy
@@ -15,7 +26,7 @@ def set_seed(seed=42):
 set_seed(42)
 
 # Cargar datos desde CSV
-file_path = "./prices/datos_unidos.csv"
+file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 #Nome file donde salver las predicciones
@@ -44,16 +55,32 @@ def create_sequences(data, input_steps=30, output_steps=7):
     return np.array(X), np.array(Y), np.array(means), np.array(stds)
 
 # Preparar datos
-input_steps = 30
-output_steps = 7
 X, Y, means, stds = create_sequences(df["Close"].values, input_steps, output_steps)
 
 # Dividir en entrenamiento y prueba
-split = int(len(X) * 0.8)
+split = int(len(X) * 0.9105)
 X_trainF, Y_trainF = X[:split], Y[:split]
 X_test, Y_test = X[split:], Y[split:]
 means_test = means[split:]
 stds_test = stds[split:]
+
+print(np.shape(X_trainF))
+X_trainF = np.clip(X_trainF, -4, 4)
+min_vals = np.min(X_trainF, axis=(0, 1))
+max_vals = np.max(X_trainF, axis=(0, 1))
+mean_vals = np.mean(X_trainF, axis=(0, 1))
+std_vals = np.std(X_trainF, axis=(0, 1))
+#print("Min:", min_vals)
+#print("Max:", max_vals)
+#print("Mean:", mean_vals)
+#print("Std:", std_vals)
+flattened_data = X_trainF.reshape(-1, 1)  # Shape (8012, 30)
+print(np.shape(flattened_data))
+plt.figure(figsize=(10, 6))  # Set figure size
+plt.hist(flattened_data, bins=50, alpha=0.7, color='b', edgecolor='black')
+plt.title("Close Price")
+plt.xlabel("Valor")
+plt.ylabel("Frecuencia")
 
 split2 = int(len(X_trainF) * 0.8)
 X_train, Y_train = X_trainF[:split2], Y_trainF[:split2]
@@ -63,17 +90,11 @@ X_train = X_train.reshape(-1, input_steps, 1)
 X_val = X_val.reshape(-1, input_steps, 1)
 X_test = X_test.reshape(-1, input_steps, 1)
 
-# Definir los hiperparámetros
-neurons = 10
-learning_rate = 0.0001
-batch_size = 32
-epochs = 100
-dense_layers = 1
 
 # Crear el modelo con los hiperparámetros fijos
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        SimpleRNN(30, activation="tanh", return_sequences=False, input_shape=(input_steps, 1),
+        SimpleRNN(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, 1),
                   kernel_initializer = HeUniform(seed=42)),
     ])
 
@@ -88,14 +109,12 @@ def create_model(neurons, learning_rate, dense_layers):
 # Crear el modelo y entrenarlo
 model = create_model(neurons, learning_rate, dense_layers)
 
-# Plot the model architecture (optional step)
+# Grafica el Modelo
 plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
-
-# You can display the plot inline (in a Jupyter Notebook for example)
 img = plt.imread('./model_plot.png')
 plt.figure(figsize=(12, 12))
 plt.imshow(img)
-plt.axis('off')  # Hide axes
+plt.axis('off')
 plt.show()
 
 history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
