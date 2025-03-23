@@ -6,17 +6,18 @@ from tensorflow.keras.layers import SimpleRNN, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
-from tensorflow.keras.initializers import GlorotUniform, HeUniform
 
-# Hiperparametros
-input_steps = 30*6
+# I/O sequencies
+input_steps = 30
 output_steps = 7
-neurons = 10*6
+
+# Definir los hiperparámetros
+neurons = 10
 learning_rate = 0.0001
 batch_size = 32
 epochs = 30
-dense_layers = 1*3
-RRN_cell = 30*6
+dense_layers = 1
+RNNs = 30
 
 
 # Función para fijar la semilla en todos los lugares necesarios
@@ -94,20 +95,20 @@ X_test = X_test.reshape(-1, input_steps, 1)
 # Crear el modelo con los hiperparámetros fijos
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        SimpleRNN(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, 1),
-                  kernel_initializer = HeUniform(seed=42)),
+        SimpleRNN(RNNs, activation="tanh", return_sequences=False, input_shape=(input_steps, 1)),
     ])
 
     # Agregar capas densas según el número de capas especificado
     for i in range(dense_layers):
-        model.add(Dense(neurons / (i + 1), activation="relu", kernel_initializer = HeUniform(seed=42)))  # "neurons/(i+1)" neuronas en cada capa densa
+        model.add(Dense(int(neurons / (i + 1)), activation="relu"))  # "neurons/(i+1)" neuronas en cada capa densa
 
-    model.add(Dense(output_steps, activation='linear', kernel_initializer = HeUniform(seed=42)))  # Capa de salida
+    model.add(Dense(output_steps, activation='linear'))  # Capa de salida
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
     return model
 
 # Crear el modelo y entrenarlo
 model = create_model(neurons, learning_rate, dense_layers)
+model.summary()
 
 # Grafica el Modelo
 plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
@@ -116,6 +117,7 @@ plt.figure(figsize=(12, 12))
 plt.imshow(img)
 plt.axis('off')
 plt.show()
+
 
 history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
 

@@ -15,18 +15,22 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
-
-# Función para fijar la semilla en todos los lugares necesarios
-def set_seed(seed=42):
-    np.random.seed(seed)  # Fija la semilla para NumPy
-    tf.random.set_seed(seed)  # Fija la semilla para TensorFlow
-set_seed(42)
+# Definir los hiperparámetros
+input_steps = 60
+output_steps = 7
+neurons = 30
+learning_rate = 0.0001
+batch_size = 32
+epochs = 30
+dense_layers = 1
+GRUs = 60
+advanced = True
 
 #Nome file donde salver las predicciones
 out_pred_name = "GRU_Precio_y_macro"
 
 #  Cargar datos desde CSV
-file_path = "results/NASDAQ_price_plus_macro.csv"  # Adjust the path to your CSV file
+file_path = "results/NASDAQ_price_plus_macro.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 
@@ -36,18 +40,11 @@ def create_sequences(data, input_steps=30, output_steps=7):
     for i in range(len(data) - input_steps - output_steps):
         seq = data[i:i + input_steps]
         future_seq = data[i + input_steps:i + input_steps + output_steps]
-
-        # Compute mean and std for each column separately
-        mean = np.mean(seq, axis=0)  # Mean for each column
-        std = np.std(seq, axis=0)  # Std for each column
-
-        # Avoid division by zero
+        mean = np.mean(seq, axis=0)
+        std = np.std(seq, axis=0)
         std[std == 0] = 1
-
-        # Normalize all columns
         normalized_seq = (seq - mean) / std
         normalized_future_seq = (future_seq - mean) / std
-
         X.append(normalized_seq)
         Y.append(normalized_future_seq[:, 0])  # Predict only the first column (e.g., Close price)
         means.append(mean[0])
@@ -57,10 +54,8 @@ def create_sequences(data, input_steps=30, output_steps=7):
 
 
 # Prepare data
-input_steps = 30*6
-output_steps = 7
 data_columns = ['Close', 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
-data_values = df[data_columns].values  # Extract relevant columns
+data_values = df[data_columns].values
 
 # Create sequences
 X, Y, means, stds = create_sequences(data_values, input_steps, output_steps)
@@ -71,38 +66,36 @@ X_trainF, Y_trainF = X[:split], Y[:split]
 X_test, Y_test = X[split:], Y[split:]
 means_test = means[split:]
 stds_test = stds[split:]
-print(X_trainF)
 split2 = int(len(X_trainF) * 0.8)
 X_train, Y_train = X_trainF[:split2], Y_trainF[:split2]
-
 X_val, Y_val = X_trainF[split2:], Y_trainF[split2:]
-
 X_train = X_train.reshape(-1, input_steps, len(data_columns))
 X_val = X_val.reshape(-1, input_steps, len(data_columns))
 X_test = X_test.reshape(-1, input_steps, len(data_columns))
 
-# Definir los hiperparámetros
-neurons = 10*6
-learning_rate = 0.0001
-batch_size = 32
-epochs = 20
-dense_layers = 3
-RRN_cell = 30*6
 
 # Create model
 def create_model(neurons, learning_rate, dense_layers):
-    model = Sequential([
-        GRU(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, len(data_columns)),
-        kernel_initializer = HeUniform(seed=42)),
-    ])
 
-    for i in range(dense_layers):
-        model.add(Dense(neurons / (i + 1), activation="relu", kernel_initializer = HeUniform(seed=42)))  # Add dense layers
+    if advanced:
+        model = Sequential([
+            GRU(GRUs, activation="tanh", return_sequences=False, input_shape=(input_steps, len(data_columns)))])
+        GRU(GRUs, activation="tanh", return_sequences=False, )
+        model.add(Dense(neurons, activation="relu"))
+        model.add(Dense(neurons, activation="relu"))
+        model.add(Dense(output_steps, activation='linear'))
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
+        return model
 
-
-    model.add(Dense(output_steps, activation='linear', kernel_initializer = HeUniform(seed=42)))  # Output layer for predicting only the Close price
-    model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
-    return model
+    else:
+        model = Sequential([
+            GRU(GRUs, activation="tanh", return_sequences=False,
+                      input_shape=(input_steps, len(data_columns)))])
+        for i in range(dense_layers):
+            model.add(Dense(neurons / (i + 1), activation="relu"))  # Add dense layers
+        model.add(Dense(output_steps, activation='linear'))  # Output layer for predicting only the Close price
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
+        return model
 
 
 # Create model

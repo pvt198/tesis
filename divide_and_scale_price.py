@@ -47,9 +47,7 @@ output_original = batch['output_original']
 dias_input = np.arange(1, 31)  # Días 1-30 (entrada)
 dias_output = np.arange(31, 38)  # Días 31-37 (salida)
 
-# ---------------------------- #
-# Gráfico 1: Datos originales #
-# ---------------------------- #
+# Datos originales #
 plt.figure(figsize=(12, 6))
 
 for i, col in enumerate(cols):
@@ -63,9 +61,8 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# ---------------------------- #
-# Gráfico 2: Datos Normalizados #
-# ---------------------------- #
+
+# Datos Normalizados #
 plt.figure(figsize=(12, 6))
 
 for i, col in enumerate(cols):

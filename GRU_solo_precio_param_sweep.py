@@ -19,18 +19,18 @@ file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Nome file donde salvar las predicciones
-out_pred_name = "RNN_solo_Precio"
+out_pred_name = "GRU_solo_Precio"
 
 # Definir los valores a explorar
 input_steps = 30
 output_steps = 7
 
 param_grid = {
-    "neurons": [10, 20, 30],
-    "learning_rate": [0.0001, 0.001],
-    "batch_size": [8, 32, 64],
+    "neurons": [10],
+    "learning_rate": [0.0001],
+    "batch_size": [8],
     "epochs": [500],
-    "dense_layers": [1,2,3],
+    "dense_layers": [1],
     "RNN": [30],
     "recurrent": [0]
 }

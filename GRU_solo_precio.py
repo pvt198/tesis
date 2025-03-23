@@ -2,11 +2,32 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import GRU, Dense  # Import GRU layer instead of LSTM
+from tensorflow.keras.layers import GRU, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
-from tensorflow.keras.initializers import GlorotUniform, HeUniform
+from tensorflow.keras.callbacks import EarlyStopping
+
+# I/O sequencies
+input_steps = 30
+output_steps = 7
+
+# Definir los hiperparámetros
+neurons = 10
+learning_rate = 0.0001
+batch_size = 32
+epochs = 30
+dense_layers = 1
+GRUs = 30
+
+# Para parar el entrenamiento si no hay mejoramientos
+early_stopping = EarlyStopping(
+    monitor='val_loss',
+    patience=5,
+    min_delta=0.001,
+    restore_best_weights=True,
+    verbose=1
+)
 
 # Función para fijar la semilla en todos los lugares necesarios
 def set_seed(seed=42):
@@ -43,13 +64,10 @@ def create_sequences(data, input_steps=30, output_steps=7):
 
     return np.array(X), np.array(Y), np.array(means), np.array(stds)
 
-# Preparar datos
-input_steps = 30
-output_steps = 7
 X, Y, means, stds = create_sequences(df["Close"].values, input_steps, output_steps)
 
 # Dividir en entrenamiento y prueba
-split = int(len(X) * 0.8)
+split = int(len(X) * 0.9105)
 X_trainF, Y_trainF = X[:split], Y[:split]
 X_test, Y_test = X[split:], Y[split:]
 means_test = means[split:]
@@ -63,26 +81,20 @@ X_train = X_train.reshape(-1, input_steps, 1)
 X_val = X_val.reshape(-1, input_steps, 1)
 X_test = X_test.reshape(-1, input_steps, 1)
 
-# Definir los hiperparámetros
-neurons = 10
-learning_rate = 0.0001
-batch_size = 32
-epochs = 100
-dense_layers = 1
+
 
 # Crear el modelo con los hiperparámetros fijos utilizando GRU
 def create_model(neurons, learning_rate, dense_layers):
     model = Sequential([
-        GRU(30, activation="tanh", return_sequences=False,
-            kernel_initializer=HeUniform(seed=42), input_shape=(input_steps, 1)),  # Replace LSTM with GRU
+        GRU(GRUs, activation="tanh", return_sequences=False,
+            input_shape=(input_steps, 1)),  # Replace LSTM with GRU
     ])
 
     # Agregar capas densas según el número de capas especificado
     for i in range(dense_layers):
-        model.add(Dense(neurons / (i + 1), activation="relu",
-                  kernel_initializer=HeUniform(seed=42)))  # "neurons/(i+1)" neuronas en cada capa densa
+        model.add(Dense(neurons / (i + 1), activation="relu",))  # "neurons/(i+1)" neuronas en cada capa densa
 
-    model.add(Dense(output_steps, activation='linear', kernel_initializer=HeUniform(seed=42)))  # Capa de salida
+    model.add(Dense(output_steps, activation='linear', ))  # Capa de salida
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
     return model
 
@@ -97,7 +109,8 @@ plt.imshow(img)
 plt.axis('off')  # Hide axes
 plt.show()
 
-history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, Y_val))
+history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1,
+                    validation_data=(X_val, Y_val))
 
 # Función para encontrar la mínima pérdida de validación
 def find_min_val_loss(history):

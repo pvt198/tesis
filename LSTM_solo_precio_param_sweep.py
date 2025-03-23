@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import SimpleRNN, Dense
+from tensorflow.keras.layers import SimpleRNN, Dense, GRU, LSTM
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
@@ -19,20 +19,20 @@ file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
 # Nome file donde salvar las predicciones
-out_pred_name = "RNN_solo_Precio"
+out_pred_name = "LSTM_solo_Precio"
 
 # Definir los valores a explorar
-input_steps = 720
+input_steps = 30
 output_steps = 7
 
 param_grid = {
-    "neurons": [60],
+    "neurons": [10,20,30],
     "learning_rate": [0.0001],
     "batch_size": [32],
     "epochs": [500],
     "dense_layers": [1,2,3],
-    "RNN": [60],
-    "recurrent": [1]
+    "RNN": [30],
+    "recurrent": [0]
 }
 
 # Generar todas las combinaciones posibles de hiperparámetros
@@ -93,7 +93,7 @@ X_test = X_test.reshape(-1, input_steps, 1)
 # Función para crear el modelo
 def create_model(neurons, learning_rate, dense_layers, recurrent, RNN):
     model = Sequential([
-        SimpleRNN(RNN, activation="tanh", return_sequences=recurrent, input_shape=(input_steps, 1)),
+        LSTM(RNN, activation="tanh", return_sequences=recurrent, input_shape=(input_steps, 1)),
     ])
 
     # Agregar capas densas según el número de capas especificado
@@ -103,9 +103,9 @@ def create_model(neurons, learning_rate, dense_layers, recurrent, RNN):
             model.add(Dense(int(neurons / (i+1)), activation="relu"))
         else:
             if i == dense_layers - 1:
-                model.add(SimpleRNN(int(neurons / (i+1)),activation="tanh", return_sequences=False))
+                model.add(GRU(int(neurons / (i+1)),activation="tanh", return_sequences=False))
             else:
-                model.add(SimpleRNN(int(neurons / (i+1)),activation="tanh", return_sequences=True))
+                model.add(GRU(int(neurons / (i+1)),activation="tanh", return_sequences=True))
 
     if recurrent == 1:
         model.add(Dense(int(neurons / (dense_layers)), activation="relu"))
@@ -138,12 +138,12 @@ for params in param_combinations:
     model = create_model(neurons, learning_rate, dense_layers, recurrent, RNN)
 
     #Plot el modelo
-    plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
-    img = plt.imread('./model_plot.png')
-    plt.figure(figsize=(12, 12))
-    plt.imshow(img)
-    plt.axis('off')
-    plt.show()
+    # plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
+    # img = plt.imread('./model_plot.png')
+    # plt.figure(figsize=(12, 12))
+    # plt.imshow(img)
+    # plt.axis('off')
+    # plt.show()
 
     # Entrenar el modelo
     history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1,

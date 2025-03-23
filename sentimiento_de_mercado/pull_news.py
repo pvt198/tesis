@@ -1,86 +1,96 @@
 import requests
 import matplotlib.pyplot as plt
+import numpy as np
+import csv
 from datetime import datetime, timedelta
+import random
 
-# Propia API key de Alpha Vantage
-API_KEY = "V7CCRIFNCAMMHMX8"
+# API Key
+API_KEY = "FAQE6GTDR1LHTPB2"
+
+user_agents = [
+    # Windows (Chrome, Edge, Firefox)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/119.0.0.0 Safari/537.36",
+
+    # MacOS (Safari, Chrome, Firefox)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Version/14.1 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_4) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/114.0",
+
+    # Linux (Chrome, Firefox)
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0",
+
+    # Mobile (Android, iOS)
+    "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/537.36",
+    "Mozilla/5.0 (iPad; CPU OS 15_6 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/537.36"
+]
 
 
-# Función para obtener noticias dentro de un mes específico
-def obtener_noticias_mes(anio, mes):
-    # Calcular la fecha de inicio y fin del mes
-    fecha_inicio = datetime(anio, mes, 1)
-    if mes == 12:
-        fecha_fin = datetime(anio + 1, 1, 1) - timedelta(minutes=1)
-    else:
-        fecha_fin = datetime(anio, mes + 1, 1) - timedelta(minutes=1)
-
-    # Formatear las fechas en el formato requerido por la API (YYYYMMDDTHHMM)
-    time_from = fecha_inicio.strftime("%Y%m%dT0000")
-    time_to = fecha_fin.strftime("%Y%m%dT2359")
-
-    # Construir la URL con los parámetros
-    url = (f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=technology&apikey={API_KEY}&time_from={time_from}&time_to={time_to}&limit=1000")
-
-    # Realizar la solicitud a la API
-    response = requests.get(url)
+def obtener_noticias_dia(anio, mes, dia):
+    fecha = datetime(anio, mes, dia)
+    time_from = fecha.strftime("%Y%m%dT0000")
+    time_to = fecha.strftime("%Y%m%dT2359")
+    url = (f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&sort=RELEVANCE&topics=technology"
+           f"&apikey={API_KEY}&time_from={time_from}&time_to={time_to}&limit=1000")
+    headers = {"User-Agent": random.choice(user_agents)}
+    response = requests.get(url, headers=headers)
     data = response.json()
+
+    # Save raw data to CSV per day
+    filename = f"news_{anio}-{mes:02d}-{dia:02d}.csv"
+    with open(filename, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Title", "Summary", "Sentiment Score"])
+        if "feed" in data:
+            for article in data["feed"]:
+                writer.writerow(
+                    [article.get("title", ""), article.get("summary", ""), article.get("overall_sentiment_score", "")])
+
+    print(f"Saved data to {filename}")
     return data
 
 
-# Función para calcular estadísticas del sentimiento
 def calcular_estadisticas_sentimiento(datos):
     if "feed" in datos and datos["feed"]:
         puntajes = [articulo["overall_sentiment_score"] for articulo in datos["feed"]]
         return {
-            "promedio": sum(puntajes) / len(puntajes),
-            "min": min(puntajes),
-            "max": max(puntajes),
+            "promedio": np.mean(puntajes),
+            "desviacion": np.std(puntajes),
             "cantidad": len(puntajes)
         }
-    return None  # Si no hay noticias
+    return None
 
 
-# Definir el rango de tiempo (enero 2024 - diciembre 2024)
-anio = 2024
+anio, mes = 2025, 3
+num_dias = 31
+num_llamadas = 25
 
-# Listas para graficar
-meses = []
-promedios = []
-mins = []
-maxs = []
-cantidades = []
+# Espaciamos las llamadas uniformemente
+dias_seleccionados = np.linspace(1, num_dias, num_llamadas, dtype=int)
 
-# Iterar mes a mes
-for mes in range(1, 13):
-    datos_mes = obtener_noticias_mes(anio, mes)
-    estadisticas = calcular_estadisticas_sentimiento(datos_mes)
+fechas, promedios, desviaciones, cantidades = [], [], [], []
 
-    if estadisticas is not None:
-        meses.append(mes)
-        promedios.append(estadisticas["promedio"])
-        mins.append(estadisticas["min"])
-        maxs.append(estadisticas["max"])
-        cantidades.append(estadisticas["cantidad"])
-        print(
-            f"📆 Mes {mes}/{anio}: Sentimiento promedio = {estadisticas['promedio']:.4f}, Min = {estadisticas['min']:.4f}, Max = {estadisticas['max']:.4f}, Noticias = {estadisticas['cantidad']}")
-    else:
-        print(f"📆 Mes {mes}/{anio}: No se encontraron noticias.")
+with open("sentimiento_tecnologia_marc2025.csv", mode="w", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(["Fecha", "Promedio Sentimiento", "Desviación", "Cantidad de Noticias"])
 
-# Graficar resultados
-fig, ax1 = plt.subplots()
-ax2 = ax1.twinx()
+    for dia in dias_seleccionados:
+        datos_dia = obtener_noticias_dia(anio, mes, dia)
+        estadisticas = calcular_estadisticas_sentimiento(datos_dia)
 
-ax1.plot(meses, promedios, marker='o', label='Promedio Sentimiento', color='b')
-ax1.fill_between(meses, mins, maxs, color='b', alpha=0.1, label='Rango Sentimiento')
-ax2.bar(meses, cantidades, alpha=0.3, color='g', label='Cantidad de Noticias')
+        if estadisticas is not None:
+            fechas.append(datetime(anio, mes, dia))
+            promedios.append(estadisticas["promedio"])
+            desviaciones.append(estadisticas["desviacion"])
+            cantidades.append(estadisticas["cantidad"])
+            writer.writerow([fechas[-1].strftime('%Y-%m-%d'), promedios[-1], desviaciones[-1], cantidades[-1]])
 
-ax1.set_xlabel('Mes')
-ax1.set_ylabel('Sentimiento', color='b')
-ax2.set_ylabel('Número de Noticias', color='g')
-ax1.legend(loc='upper left')
-ax2.legend(loc='upper right')
-ax1.set_xticks(meses)
-ax1.grid(True)
-plt.title(f"Sentimiento del mercado tecnológico en {anio}")
-plt.show()
+# Interpolación para completar los días faltantes
+dias_totales = np.arange(1, num_dias + 1)
+promedios_interp = np.interp(dias_totales, dias_seleccionados, promedios)
+desviaciones_interp = np.interp(dias_totales, dias_seleccionados, desviaciones)
+
