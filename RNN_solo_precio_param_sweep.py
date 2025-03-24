@@ -12,26 +12,28 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 from tensorflow.keras.callbacks import EarlyStopping
-
+import random, os
+np.random.seed(42)
+tf.random.set_seed(42)
+random.seed(42)
+os.environ['PYTHONHASHSEED'] = '42'
 
 # Cargar datos desde CSV
 file_path = "datos_unidos.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 
-# Nome file donde salvar las predicciones
-out_pred_name = "RNN_solo_Precio"
 
 # Definir los valores a explorar
 input_steps = 720
-output_steps = 7
+output_steps = 1
 
 param_grid = {
     "neurons": [60],
     "learning_rate": [0.0001],
     "batch_size": [32],
-    "epochs": [500],
+    "epochs": [1000],
     "dense_layers": [1,2,3],
-    "RNN": [60],
+    "RNN": [60,],
     "recurrent": [1]
 }
 
@@ -91,9 +93,9 @@ X_test = X_test.reshape(-1, input_steps, 1)
 
 
 # Función para crear el modelo
-def create_model(neurons, learning_rate, dense_layers, recurrent, RNN):
+def create_model(neurons, learning_rate, dense_layers, recurrent, numeroCeldas):
     model = Sequential([
-        SimpleRNN(RNN, activation="tanh", return_sequences=recurrent, input_shape=(input_steps, 1)),
+        SimpleRNN(numeroCeldas, activation="tanh", return_sequences=recurrent, input_shape=(input_steps, 1)),
     ])
 
     # Agregar capas densas según el número de capas especificado
@@ -120,8 +122,8 @@ results = []
 # Para parar el entrenamiento si no hay mejoramientos
 early_stopping = EarlyStopping(
     monitor='val_loss',
-    patience=5,
-    min_delta=0.001,
+    patience=10,
+    min_delta=0.0001,
     restore_best_weights=True,
     verbose=1
 )
@@ -133,10 +135,8 @@ for params in param_combinations:
         f"Entrenando con: neurons={neurons}, learning_rate={learning_rate}, "
         f"batch_size={batch_size}, epochs={epochs}, dense_layers={dense_layers},"
         f"recurrent={recurrent}, RNN={RNN}")
-
     # Crear el modelo con los parámetros actuales
     model = create_model(neurons, learning_rate, dense_layers, recurrent, RNN)
-
     #Plot el modelo
     plot_model(model, to_file='./model_plot.png', show_shapes=True, show_layer_names=True)
     img = plt.imread('./model_plot.png')
@@ -144,15 +144,12 @@ for params in param_combinations:
     plt.imshow(img)
     plt.axis('off')
     plt.show()
-
     # Entrenar el modelo
     history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=1,
                         validation_data=(X_val, Y_val),callbacks=[early_stopping])
-
     # Evaluar el modelo
     val_loss = min(history.history['val_loss'])
     print(f"Pérdida de validación (MSE): {val_loss:.4f}")
-
     # Guardar el resultado para cada combinación de parámetros
     results.append({
         "neurons": neurons,
@@ -174,7 +171,7 @@ print(results_df)
 
 # Seleccionar el mejor modelo (el que tenga la menor pérdida de validación)
 best_params = results_df.loc[results_df['val_loss'].idxmin()]
-print(f"Mejores parámetros: {best_params}")
+print(f"Mejores parámetros:\n {best_params}")
 
 # Crear el modelo con los mejores parámetros
 best_model = create_model(

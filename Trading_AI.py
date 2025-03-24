@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Cargar el archivo CSV con las predicciones
-df = pd.read_csv("results/RNN_Precio_y_macro_predictions_OPrice.csv")
+df = pd.read_csv("results/RNN_solo_Precio_predictions_30.csv")
 
 # Asegurar que la columna "Date" sea de tipo datetime y ordenar por fecha
 df["Date"] = pd.to_datetime(df["Date"])
@@ -149,7 +149,7 @@ plt.legend()
 plt.grid()
 plt.xticks(rotation=90)
 plt.show()
-
+print(capital_history[-1])
 # GRAFICO BOX PLOT DEL CAPITAL
 plt.figure(figsize=(14, 7))
 box_data = [capital_history, capital_buy_and_hold]

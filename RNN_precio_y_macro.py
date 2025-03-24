@@ -13,7 +13,12 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
-
+import random, os
+np.random.seed(42)
+tf.random.set_seed(42)
+random.seed(42)
+os.environ['PYTHONHASHSEED'] = '42'
+print("hola")
 
 def create_sequences(data, input_steps=30, output_steps=7):
     X, Y, means, stds = [], [], [], []
@@ -35,20 +40,20 @@ def create_sequences(data, input_steps=30, output_steps=7):
 
 
 # Hiperparametros
-input_steps = 360
-output_steps = 7
+input_steps = 60
+output_steps = 1
 neurons = 30
 learning_rate = 0.0001
 batch_size = 32
-epochs = 30
-dense_layers = 1
+epochs = 100
+dense_layers = 2
 RRN_cell = 60
 advanced = True
 
 #  Cargar datos desde CSV
 file_path = "results/NASDAQ_price_plus_macro.csv"
 df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
-data_columns = ['Close']#, 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
+data_columns = ['Close', 'GDP', 'Unemployment Rate', 'Interest Rate', 'M2 Money Supply', 'Inflation']
 data_values = df[data_columns].values
 X, Y, means, stds = create_sequences(data_values, input_steps, output_steps)
 
@@ -99,8 +104,8 @@ def create_model(neurons, learning_rate, dense_layers):
 
     if advanced:
         model = Sequential([
-            LSTM(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, len(data_columns)))])
-        LSTM(RRN_cell, activation="tanh", return_sequences=False,)
+            SimpleRNN(RRN_cell, activation="tanh", return_sequences=False, input_shape=(input_steps, len(data_columns)))])
+        SimpleRNN(RRN_cell, activation="tanh", return_sequences=False,)
         model.add(Dense(neurons , activation="relu"))
         model.add(Dense(neurons , activation="relu"))
         model.add(Dense(output_steps, activation='linear'))

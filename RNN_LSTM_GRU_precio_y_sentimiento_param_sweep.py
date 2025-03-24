@@ -8,6 +8,11 @@ from tensorflow.keras.utils import plot_model
 import matplotlib.pyplot as plt
 import itertools
 from tensorflow.keras.callbacks import EarlyStopping
+import random, os
+np.random.seed(42)
+tf.random.set_seed(42)
+random.seed(42)
+os.environ['PYTHONHASHSEED'] = '42'
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -20,7 +25,7 @@ df = pd.read_csv(file_path, parse_dates=["Date"], dayfirst=True)
 #print(df)
 
 # Cargar los datos del sentimiento de mercado
-sentiment_file_path = "./sentimiento_de_mercado/aggregated_sentiment_old.csv"
+sentiment_file_path = "./sentimiento_de_mercado/aggregated_sentiment.csv"
 df_sentiment = pd.read_csv(sentiment_file_path, parse_dates=["Date"], dayfirst=True)
 #print(df_sentiment)
 
@@ -29,7 +34,7 @@ df['Date'] = pd.to_datetime(df['Date'], format='%m/%d/%Y')
 df_sentiment['Date'] = pd.to_datetime(df_sentiment['Date'], format='%Y-%m-%d')
 df = pd.merge(df, df_sentiment[['Date', 'Average Weighted Sentiment']], on='Date', how='inner')
 df = df.dropna()  # Elimina las filas con valores NaN
-#print(df)
+print(df)
 
 # Nome file donde salvar las predicciones
 out_pred_name = "RNN_solo_Precio_y_Sentimiento"
@@ -39,16 +44,18 @@ input_steps = 30
 output_steps = 1
 
 param_grid = {
-    "neurons": [10],#,20,30],
+    "neurons": [10,30,60],
     "learning_rate": [0.0001],
     "batch_size": [32],
     "epochs": [1000],
-    "dense_layers": [1],#,2,3],
-    "RNN": [30],#,60],
-    "recurrent": [0],#, 1],
-    "use_sentiment": [False],  # Añadir la opción para usar o no el sentimiento
+    "dense_layers": [1,2,3],
+    "celdasR": [30],
+    "recurrent": [0, 1],
+    "use_sentiment": [False, True],  # Añadir la opción para usar o no el sentimiento
     "rnn_type": ['SimpleRNN', 'GRU', 'LSTM']  # Añadir la opción para elegir el tipo de celda recurrente
 }
+
+
 
 # Generar todas las combinaciones posibles de hiperparámetros
 param_combinations = list(itertools.product(
@@ -58,7 +65,7 @@ param_combinations = list(itertools.product(
     param_grid["epochs"],
     param_grid["dense_layers"],
     param_grid["recurrent"],
-    param_grid["RNN"],
+    param_grid["celdasR"],
     param_grid["use_sentiment"],
     param_grid["rnn_type"]  # Añadir la opción para elegir el tipo de celda RNN
 ))
@@ -150,7 +157,7 @@ early_stopping = EarlyStopping(
 
 # Loop sobre todas las combinaciones de hiperparámetros
 for params in param_combinations:
-    neurons, learning_rate, batch_size, epochs, dense_layers, recurrent, RNN, use_sentiment, rnn_type = params
+    neurons, learning_rate, batch_size, epochs, dense_layers, recurrent, celdasR, use_sentiment, rnn_type = params
     X = []
     Y = []
     # Preparar datos
@@ -171,10 +178,10 @@ for params in param_combinations:
     print(
         f"Entrenando con: neurons={neurons}, learning_rate={learning_rate}, "
         f"batch_size={batch_size}, epochs={epochs}, dense_layers={dense_layers},"
-        f" recurrent={recurrent}, RNN={RNN}, use_sentiment={use_sentiment}, rnn_type={rnn_type}")
+        f" recurrent={recurrent}, celdasR={celdasR}, use_sentiment={use_sentiment}, rnn_type={rnn_type}")
 
     # Crear el modelo con los parámetros actuales
-    model = create_model(neurons, learning_rate, dense_layers, recurrent, RNN, use_sentiment, rnn_type)
+    model = create_model(neurons, learning_rate, dense_layers, recurrent, celdasR, use_sentiment, rnn_type)
 
     # Entrenar el modelo
     history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, verbose=0,
@@ -193,7 +200,7 @@ for params in param_combinations:
         "dense_layers": dense_layers,
         "val_loss": val_loss,
         "recurrent": recurrent,
-        "RNN": RNN,
+        "celdasR": celdasR,
         "use_sentiment": use_sentiment,
         "rnn_type": rnn_type  # Guardar el tipo de celda RNN
     })
@@ -207,7 +214,7 @@ print(results_df)
 
 # Seleccionar el mejor modelo (el que tenga la menor pérdida de validación)
 best_params = results_df.loc[results_df['val_loss'].idxmin()]
-print(f"Mejores parámetros: {best_params}")
+print(f"Mejores parámetros:\n{best_params}")
 
 # Crear el modelo con los mejores parámetros
 best_model = create_model(
@@ -215,50 +222,44 @@ best_model = create_model(
     float(best_params["learning_rate"]),
     int(best_params["dense_layers"]),
     int(best_params["recurrent"]),
-    int(best_params["RNN"]),
+    int(best_params["celdasR"]),
     best_params["use_sentiment"],
     best_params["rnn_type"]
 )
 
-# Guardar el modelo o usarlo para predicciones si es necesario
-#best_model.save("best_model.h5")
-
-# Train the model with the best parameters
-history = best_model.fit(X_train, Y_train, epochs=best_params["epochs"], batch_size=best_params["batch_size"],
-                         validation_data=(X_val, Y_val), callbacks=[early_stopping], verbose=1)
-
-# Plot the training and validation loss
-plt.figure(figsize=(10, 6))
-plt.plot(history.history['loss'], label='Training Loss')
-plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.title("Training and Validation Loss")
-plt.xlabel('Epochs')
-plt.ylabel('Loss (MSE)')
-plt.legend()
-plt.show()
-
-
-# Make predictions on the test set
-
-# Inverse normalization for predictions and actual values
-predictions_rescaled = predictions * stds_test[:, 0].reshape(-1, 1) + means_test[:, 0].reshape(-1, 1)
-Y_test_rescaled = Y_test * stds_test[:, 0].reshape(-1, 1) + means_test[:, 0].reshape(-1, 1)
-# Extract the dates for the test set
-test_dates = df['Date'].iloc[-len(Y_test_rescaled):].values  # Adjust the range to match the length of Y_test
-
-# Plot actual vs predicted values on the test set
-plt.figure(figsize=(12, 6))
-plt.plot(test_dates, Y_test_rescaled, label='Actual Values', color='blue', alpha=0.6)
-plt.plot(test_dates, predictions_rescaled, label='Predicted Values', color='red', alpha=0.6)
-plt.title("Actual vs Predicted Test Values")
-plt.xlabel('Date')
-plt.ylabel('Stock Price')
-plt.xticks(rotation=45)  # Rotate the dates to avoid overlap
-plt.legend()
-plt.tight_layout()
-plt.show()
-
-
-# Evaluate the test loss
-test_loss = best_model.evaluate(X_test, Y_test)
-print(f"Test Loss (MSE): {test_loss:.4f}")
+# # Guardar el modelo o usarlo para predicciones si es necesario
+# #best_model.save("best_model.h5")
+#
+# # Train the model with the best parameters
+# history = best_model.fit(X_train, Y_train, epochs=best_params["epochs"], batch_size=best_params["batch_size"],
+#                          validation_data=(X_val, Y_val), callbacks=[early_stopping], verbose=1)
+#
+# # Plot the training and validation loss
+# plt.figure(figsize=(10, 6))
+# plt.plot(history.history['loss'], label='Training Loss')
+# plt.plot(history.history['val_loss'], label='Validation Loss')
+# plt.title("Training and Validation Loss")
+# plt.xlabel('Epochs')
+# plt.ylabel('Loss (MSE)')
+# plt.legend()
+# plt.show()
+#
+#
+# # Make predictions on the test set
+# predictions = best_model.predict(X_test)
+# predictions_rescaled = predictions * stds_test[:, 0].reshape(-1, 1) + means_test[:, 0].reshape(-1, 1)
+# Y_test_rescaled = Y_test * stds_test[:, 0].reshape(-1, 1) + means_test[:, 0].reshape(-1, 1)
+# test_dates = df['Date'].iloc[-len(Y_test_rescaled):].values  # Adjust the range to match the length of Y_test
+# print(test_dates)
+# plt.figure(figsize=(12, 6))
+# plt.plot(test_dates, Y_test_rescaled, label='Actual Values', color='blue', alpha=0.6)
+# plt.plot(test_dates, predictions_rescaled, label='Predicted Values', color='red', alpha=0.6)
+# plt.title("Actual vs Predicted Test Values")
+# plt.xlabel('Date')
+# plt.ylabel('Stock Price')
+# plt.xticks(rotation=90)
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
+# test_loss = best_model.evaluate(X_test, Y_test)
+# print(f"Test Loss (MSE): {test_loss:.4f}")

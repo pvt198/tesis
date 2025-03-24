@@ -31,7 +31,7 @@ def sentiment_analysis(text):
     return sentiment_label, prob_positive, prob_neutral, prob_negative
 
 # Texto de ejemplo para analizar
-text = "El desempeño financiero de la empresa ha superado las expectativas y el precio de sus acciones ha aumentado considerablemente."
+text = "Tesla Design Exec Says EV Giant Looking To Add Tech From Upcoming Roadster To Model S, X: 'There Is Always More Performance' - Tesla"
 
 # Obtener el análisis de sentimiento
 sentiment, prob_positive, prob_neutral, prob_negative = sentiment_analysis(text)

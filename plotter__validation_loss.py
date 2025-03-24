@@ -1,9 +1,12 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-files = ["./results/OPRICE_RNN_Precio_y_macro_val_loss_history.csv","./results/RNN_Precio_y_macro_val_loss_history.csv",]
-labels = ["RNN Precio",
-          "RNN Precio y Macro",
+files = ["./results/LSTM_Precio_y_macro_OPRICE_val_loss_history.csv",
+         "./results/LSTM_Precio_y_macro_val_loss_history.csv",]
+
+labels = ["LSTM Only Price",
+          "LSTM Price and MacroIndicators",
+
          ]
 
 
